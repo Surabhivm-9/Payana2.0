@@ -7,12 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Calendar, Users, DollarSign, Plus, X, MessageSquare, AlertTriangle, Sparkles } from "lucide-react";
+import { MapPin, Calendar, Users, DollarSign, Plus, X, MessageSquare, AlertTriangle, Sparkles, History } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import GoogleMap from "@/components/GoogleMap";
 import AIChatbot from "@/components/AIChatbot";
 import SOSButton from "@/components/SOSButton";
 import TripAnalysis from "@/components/TripAnalysis";
+import PastAdventures from "@/components/PastAdventures";
 import { toast } from "@/hooks/use-toast";
 
 const TripPlanner = () => {
@@ -25,6 +26,8 @@ const TripPlanner = () => {
     interests: "",
     notes: ""
   });
+  const [activeTab, setActiveTab] = useState("planner");
+  const [newAdventure, setNewAdventure] = useState<{ from: string; to: string } | null>(null);
 
   const addDestination = () => {
     setDestinations([...destinations, ""]);
@@ -50,6 +53,31 @@ const TripPlanner = () => {
     });
   };
 
+  const handleTripPlanned = (from: string, to: string) => {
+    // Update trip data
+    setTripData(prev => ({ ...prev, startLocation: from }));
+    setDestinations([to]);
+    
+    // Save to past adventures
+    setNewAdventure({ from, to });
+    
+    toast({
+      title: "Trip Planned!",
+      description: `Route from ${from} to ${to} has been planned and saved.`
+    });
+  };
+
+  const handleSwitchToMap = () => {
+    setActiveTab("map");
+  };
+
+  const handleViewRoute = (from: string, to: string) => {
+    // Update current trip data to show the selected route
+    setTripData(prev => ({ ...prev, startLocation: from }));
+    setDestinations([to]);
+    setActiveTab("map");
+  };
+
   const validDestinations = destinations.filter(dest => dest.trim() !== "");
   const allDestinations = tripData.startLocation ? [tripData.startLocation, ...validDestinations] : validDestinations;
 
@@ -63,12 +91,13 @@ const TripPlanner = () => {
           <p className="text-xl text-gray-600">AI-powered trip planning with personalized recommendations</p>
         </div>
 
-        <Tabs defaultValue="planner" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="planner">Trip Planner</TabsTrigger>
             <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
             <TabsTrigger value="map">Route Map</TabsTrigger>
             <TabsTrigger value="ai-chat">AI Assistant</TabsTrigger>
+            <TabsTrigger value="past-adventures">Past Adventures</TabsTrigger>
             <TabsTrigger value="emergency">Emergency</TabsTrigger>
           </TabsList>
 
@@ -245,7 +274,7 @@ const TripPlanner = () => {
                       console.log('Route calculated:', route);
                       toast({
                         title: "Route Calculated!",
-                        description: `Total distance: ${route.routes[0]?.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000}km`
+                        description: `Total distance: ${Math.round(route.routes[0]?.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000)}km`
                       });
                     }}
                   />
@@ -253,6 +282,7 @@ const TripPlanner = () => {
                   <div className="text-center py-12 text-gray-500">
                     <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>Add a starting location and at least one destination to see your route</p>
+                    <p className="text-sm mt-2">Or use the AI Assistant to plan a trip automatically!</p>
                   </div>
                 )}
               </CardContent>
@@ -260,7 +290,17 @@ const TripPlanner = () => {
           </TabsContent>
 
           <TabsContent value="ai-chat">
-            <AIChatbot />
+            <AIChatbot 
+              onTripPlanned={handleTripPlanned}
+              onSwitchToMap={handleSwitchToMap}
+            />
+          </TabsContent>
+
+          <TabsContent value="past-adventures">
+            <PastAdventures 
+              newAdventure={newAdventure}
+              onViewRoute={handleViewRoute}
+            />
           </TabsContent>
 
           <TabsContent value="emergency">
@@ -283,22 +323,22 @@ const TripPlanner = () => {
               <div className="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
                 <MapPin className="h-6 w-6 text-orange-600" />
               </div>
-              <h4 className="font-semibold">Unlimited Destinations</h4>
-              <p className="text-gray-600 text-sm">Add as many stops as you want - no more 2-destination limit</p>
+              <h4 className="font-semibold">Smart Route Planning</h4>
+              <p className="text-gray-600 text-sm">AI assistant plans trips and automatically shows routes on the map</p>
             </div>
             <div className="text-center">
               <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Users className="h-6 w-6 text-green-600" />
+                <History className="h-6 w-6 text-green-600" />
               </div>
-              <h4 className="font-semibold">Smart Recommendations</h4>
-              <p className="text-gray-600 text-sm">Hotels, restaurants, and activities tailored to your group and budget</p>
+              <h4 className="font-semibold">Past Adventures</h4>
+              <p className="text-gray-600 text-sm">All your planned trips are automatically saved and can be revisited</p>
             </div>
             <div className="text-center">
-              <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Calendar className="h-6 w-6 text-purple-600" />
+              <div className="bg-red-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
               </div>
-              <h4 className="font-semibold">Detailed Itinerary</h4>
-              <p className="text-gray-600 text-sm">Day-by-day planning with timing, costs, and insider tips</p>
+              <h4 className="font-semibold">Emergency SOS</h4>
+              <p className="text-gray-600 text-sm">Send location and emergency alerts to saved contacts instantly</p>
             </div>
           </div>
         </div>

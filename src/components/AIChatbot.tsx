@@ -14,7 +14,12 @@ interface Message {
   destinations?: string[];
 }
 
-const AIChatbot: React.FC = () => {
+interface AIChatbotProps {
+  onTripPlanned?: (from: string, to: string) => void;
+  onSwitchToMap?: () => void;
+}
+
+const AIChatbot: React.FC<AIChatbotProps> = ({ onTripPlanned, onSwitchToMap }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -62,17 +67,25 @@ const AIChatbot: React.FC = () => {
     let botResponse: Message;
     
     if (tripDetails) {
+      // Call the callback to update the trip data and switch to map
+      onTripPlanned?.(tripDetails.from, tripDetails.to);
+      
       botResponse = {
         id: (Date.now() + 1).toString(),
-        text: `Great! I've planned your trip from ${tripDetails.from} to ${tripDetails.to}. To see the detailed route on the map, please check the "Route Map" tab above. You can also add more destinations in the "Trip Planner" section for a complete itinerary.`,
+        text: `Perfect! I've planned your trip from ${tripDetails.from} to ${tripDetails.to}. Switching to the Route Map to show you the route. This trip has been saved to your past adventures!`,
         isBot: true,
         showRouteInfo: true,
         destinations: [tripDetails.from, tripDetails.to]
       };
+
+      // Switch to map tab after a short delay
+      setTimeout(() => {
+        onSwitchToMap?.();
+      }, 1500);
     } else {
       botResponse = {
         id: (Date.now() + 1).toString(),
-        text: "I can help you plan trips! Try asking me something like 'Plan a trip to Goa from Gadag' or 'Show route Mumbai to Delhi' and I'll provide route information. Check the Route Map tab to see the visual route!",
+        text: "I can help you plan trips! Try asking me something like 'Plan a trip to Goa from Gadag' or 'Show route Mumbai to Delhi' and I'll provide route information and show it on the map!",
         isBot: true
       };
     }
@@ -123,7 +136,7 @@ const AIChatbot: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2 text-xs text-blue-600">
                       <MapPin className="h-3 w-3" />
-                      Click on the "Route Map" tab above to see the visual route
+                      Route will be displayed on the map shortly...
                     </div>
                   </div>
                 )}

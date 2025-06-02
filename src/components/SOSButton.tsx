@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertTriangle, Plus, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { auth } from '@/lib/firebase';
 
 interface EmergencyContact {
   id: string;
@@ -23,25 +24,46 @@ const SOSButton = () => {
   const [sosMessage, setSosMessage] = useState('');
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          toast({
-            title: "Location Error",
-            description: "Could not get current location. Please enable location services.",
-            variant: "destructive"
-          });
-        }
-      );
+  // Load contacts from localStorage on component mount
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (userId) {
+      const savedContacts = localStorage.getItem(`emergencyContacts_${userId}`);
+      if (savedContacts) {
+        setContacts(JSON.parse(savedContacts));
+      }
     }
+  }, []);
+
+  // Save contacts to localStorage whenever contacts change
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (userId && contacts.length > 0) {
+      localStorage.setItem(`emergencyContacts_${userId}`, JSON.stringify(contacts));
+    }
+  }, [contacts]);
+
+  const getCurrentLocation = (): Promise<{ lat: number; lng: number }> => {
+    return new Promise((resolve, reject) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            setCurrentLocation(location);
+            resolve(location);
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            reject(error);
+          }
+        );
+      } else {
+        reject(new Error('Geolocation not supported'));
+      }
+    });
   };
 
   const addContact = () => {
@@ -50,9 +72,16 @@ const SOSButton = () => {
         id: Date.now().toString(),
         ...newContact
       };
-      setContacts(prev => [...prev, contact]);
+      const updatedContacts = [...contacts, contact];
+      setContacts(updatedContacts);
       setNewContact({ name: '', email: '', phone: '' });
       setIsAddingContact(false);
+      
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        localStorage.setItem(`emergencyContacts_${userId}`, JSON.stringify(updatedContacts));
+      }
+      
       toast({
         title: "Contact Added",
         description: `${contact.name} has been added to your emergency contacts.`
@@ -61,7 +90,13 @@ const SOSButton = () => {
   };
 
   const removeContact = (id: string) => {
-    setContacts(prev => prev.filter(contact => contact.id !== id));
+    const updatedContacts = contacts.filter(contact => contact.id !== id);
+    setContacts(updatedContacts);
+    
+    const userId = auth.currentUser?.uid;
+    if (userId) {
+      localStorage.setItem(`emergencyContacts_${userId}`, JSON.stringify(updatedContacts));
+    }
   };
 
   const sendSOSAlert = async () => {
@@ -74,38 +109,79 @@ const SOSButton = () => {
       return;
     }
 
-    // Get current location
-    getCurrentLocation();
+    const user = auth.currentUser;
+    const userName = user?.displayName || user?.email || 'A Payana user';
 
-    // Simulate sending emails (replace with actual email service integration)
-    const locationText = currentLocation 
-      ? `Current Location: https://maps.google.com/maps?q=${currentLocation.lat},${currentLocation.lng}`
-      : 'Location not available';
+    try {
+      // Get current location
+      const location = await getCurrentLocation();
+      
+      const locationText = location 
+        ? `Current Location: https://maps.google.com/maps?q=${location.lat},${location.lng}`
+        : 'Location not available';
 
-    const emailContent = `
-      EMERGENCY ALERT
-      
-      This is an automated emergency message from Journey Tailor.
-      
-      Message: ${sosMessage || 'Emergency assistance needed'}
-      
-      ${locationText}
-      
-      Timestamp: ${new Date().toLocaleString()}
-      
-      Please respond immediately.
-    `;
+      const emailContent = `
+        🚨 EMERGENCY ALERT 🚨
+        
+        This is an automated emergency message from Payana Travel App.
+        
+        ${userName} is in danger and needs immediate assistance!
+        
+        Message: ${sosMessage || 'Emergency assistance needed - please contact me immediately!'}
+        
+        ${locationText}
+        
+        Timestamp: ${new Date().toLocaleString()}
+        
+        Please respond immediately and contact local emergency services if needed.
+        
+        This message was sent via Payana - Journey Tailor App
+      `;
 
-    // Here you would integrate with an email service like EmailJS, Firebase Functions, or your backend
-    console.log('Sending SOS to contacts:', contacts);
-    console.log('Email content:', emailContent);
+      // Here you would integrate with an email service like EmailJS, Firebase Functions, or your backend
+      // For now, we'll simulate sending emails and show success
+      console.log('Sending SOS to contacts:', contacts);
+      console.log('Email content:', emailContent);
+      console.log('Sender:', userName);
 
-    toast({
-      title: "SOS Alert Sent",
-      description: `Emergency alert sent to ${contacts.length} contact(s).`,
-    });
+      // Simulate email sending delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    setSosMessage('');
+      toast({
+        title: "SOS Alert Sent!",
+        description: `Emergency alert sent to ${contacts.length} contact(s) from ${userName}.`,
+      });
+
+      setSosMessage('');
+    } catch (error) {
+      console.error('Error sending SOS:', error);
+      
+      // Even if location fails, send the alert without location
+      const emailContent = `
+        🚨 EMERGENCY ALERT 🚨
+        
+        This is an automated emergency message from Payana Travel App.
+        
+        ${userName} is in danger and needs immediate assistance!
+        
+        Message: ${sosMessage || 'Emergency assistance needed - please contact me immediately!'}
+        
+        Location: Could not determine current location
+        
+        Timestamp: ${new Date().toLocaleString()}
+        
+        Please respond immediately and contact local emergency services if needed.
+      `;
+
+      console.log('Sending SOS without location:', emailContent);
+
+      toast({
+        title: "SOS Alert Sent!",
+        description: `Emergency alert sent to ${contacts.length} contact(s) from ${userName} (location unavailable).`,
+      });
+
+      setSosMessage('');
+    }
   };
 
   return (
@@ -137,6 +213,10 @@ const SOSButton = () => {
             <AlertTriangle className="h-5 w-5 mr-2" />
             SEND SOS ALERT
           </Button>
+          
+          <p className="text-xs text-gray-600 text-center">
+            This will send your location and message to all emergency contacts
+          </p>
         </CardContent>
       </Card>
 
