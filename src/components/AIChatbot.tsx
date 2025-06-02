@@ -5,13 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, MapPin, Route } from 'lucide-react';
-import GoogleMap from './GoogleMap';
 
 interface Message {
   id: string;
   text: string;
   isBot: boolean;
-  showMap?: boolean;
+  showRouteInfo?: boolean;
   destinations?: string[];
 }
 
@@ -19,7 +18,7 @@ const AIChatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hi! I'm your trip planning assistant. Ask me to plan a trip like 'Plan a trip to Goa from Gadag' and I'll show you the route on the map!",
+      text: "Hi! I'm your trip planning assistant. Ask me to plan a trip like 'Plan a trip to Goa from Gadag' and I'll help you with route information!",
       isBot: true
     }
   ]);
@@ -65,15 +64,15 @@ const AIChatbot: React.FC = () => {
     if (tripDetails) {
       botResponse = {
         id: (Date.now() + 1).toString(),
-        text: `Great! I've planned your trip from ${tripDetails.from} to ${tripDetails.to}. Here's the route on the map:`,
+        text: `Great! I've planned your trip from ${tripDetails.from} to ${tripDetails.to}. To see the detailed route on the map, please check the "Route Map" tab above. You can also add more destinations in the "Trip Planner" section for a complete itinerary.`,
         isBot: true,
-        showMap: true,
+        showRouteInfo: true,
         destinations: [tripDetails.from, tripDetails.to]
       };
     } else {
       botResponse = {
         id: (Date.now() + 1).toString(),
-        text: "I can help you plan trips! Try asking me something like 'Plan a trip to Goa from Gadag' or 'Show route Mumbai to Delhi' and I'll display the route on the map.",
+        text: "I can help you plan trips! Try asking me something like 'Plan a trip to Goa from Gadag' or 'Show route Mumbai to Delhi' and I'll provide route information. Check the Route Map tab to see the visual route!",
         isBot: true
       };
     }
@@ -116,18 +115,16 @@ const AIChatbot: React.FC = () => {
                     <p className="text-sm">{message.text}</p>
                   </div>
                 </div>
-                {message.showMap && message.destinations && (
-                  <div className="w-full">
-                    <div className="flex items-center gap-2 mb-2 text-sm text-gray-600">
+                {message.showRouteInfo && message.destinations && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2 text-sm text-blue-800">
                       <Route className="h-4 w-4" />
-                      Route: {message.destinations.join(' → ')}
+                      Planned Route: {message.destinations.join(' → ')}
                     </div>
-                    <GoogleMap 
-                      destinations={message.destinations}
-                      onRouteCalculated={(route) => {
-                        console.log('Route calculated:', route);
-                      }}
-                    />
+                    <div className="flex items-center gap-2 text-xs text-blue-600">
+                      <MapPin className="h-3 w-3" />
+                      Click on the "Route Map" tab above to see the visual route
+                    </div>
                   </div>
                 )}
               </div>
